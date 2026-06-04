@@ -1,0 +1,224 @@
+/**
+ * Loads archive.json and builds the meme grid, timeline metadata, and column gradients.
+ */
+(function () {
+  var TOTAL_PX = 1440;
+
+  function timeToMinutes(time) {
+    var p = time.split(':');
+    return parseInt(p[0], 10) * 60 + parseInt(p[1], 10);
+  }
+
+  function timeToTopPct(mins) {
+    return Math.round((mins / TOTAL_PX) * 10000) / 100;
+  }
+
+  /** Month-first labels for 2026 groups; day-first for earlier months. */
+  function buildLabel(monthMeta, day, time) {
+    var parts = monthMeta.label.split(' ');
+    var mon = parts[0];
+    var year = parts[1];
+    if (/26$/.test(monthMeta.id)) {
+      return mon + ' ' + day + ' ' + year + ' ' + time;
+    }
+    return day + ' ' + mon + ' ' + year + ' ' + time;
+  }
+
+  function buildDerived(archive) {
+    var monthById = {};
+    archive.months.forEach(function (m) {
+      monthById[m.id] = m;
+    });
+
+    var entriesByMonth = {};
+    archive.entries.forEach(function (e) {
+      if (!entriesByMonth[e.month]) entriesByMonth[e.month] = {};
+      entriesByMonth[e.month][e.day] = e;
+    });
+
+    var groupMeta = {};
+    var labelsByGroup = {};
+    var chronOrder = {};
+    var monthLabels = {};
+
+    archive.months.forEach(function (m, idx) {
+      var groupClass = 'grid-group--' + m.id;
+      chronOrder[groupClass] = idx;
+      monthLabels[groupClass] = m.label;
+
+      var tops = {};
+      var labels = {};
+      var topPct = {};
+      var monthEntries = entriesByMonth[m.id] || {};
+      Object.keys(monthEntries).forEach(function (dayKey) {
+        var day = parseInt(dayKey, 10);
+        var entry = monthEntries[day];
+        var mins = timeToMinutes(entry.time);
+        tops[day] = mins;
+        topPct[day] = timeToTopPct(mins);
+        labels[day] = entry.label || buildLabel(m, day, entry.time);
+      });
+
+      groupMeta[groupClass] = { label: m.label, tops: tops };
+      labelsByGroup[groupClass] = labels;
+      m._topPct = topPct;
+      m._entriesByDay = monthEntries;
+    });
+
+    return {
+      monthById: monthById,
+      groupMeta: groupMeta,
+      labelsByGroup: labelsByGroup,
+      chronOrder: chronOrder,
+      monthLabels: monthLabels
+    };
+  }
+
+  function buildDom(archive, derived) {
+    var wrapper = document.getElementById('archive-scroll');
+    if (!wrapper) return;
+
+    var monthOrder = archive.displayOrder || archive.months.map(function (m) { return m.id; });
+    var fragment = document.createDocumentFragment();
+
+    monthOrder.forEach(function (mid) {
+      var m = derived.monthById[mid];
+      if (!m) return;
+
+      var section = document.createElement('section');
+      section.className = 'grid-group grid-group--' + m.id;
+      section.setAttribute('aria-label', m.ariaLabel);
+
+      var canvas = document.createElement('div');
+      canvas.className = 'grid-canvas' + (m.cols31 ? ' grid-canvas--31' : '');
+
+      for (var d = 1; d <= m.days; d++) {
+        var cell = document.createElement('div');
+        cell.className = 'grid-cell';
+        cell.setAttribute('data-day', String(d));
+
+        var entry = m._entriesByDay[d];
+        if (entry) {
+          var img = document.createElement('img');
+          img.src = 'photos/' + entry.photo;
+          var y = entry.photo.slice(0, 2);
+          var mo = entry.photo.slice(2, 4);
+          var dy = entry.photo.slice(4, 6);
+          img.alt = '20' + y + '-' + mo + '-' + dy;
+          cell.appendChild(img);
+        }
+        canvas.appendChild(cell);
+      }
+      section.appendChild(canvas);
+      fragment.appendChild(section);
+    });
+
+    wrapper.appendChild(fragment);
+  }
+
+  function injectGradients(archive, derived) {
+    var stripPx = 30;
+    var n = TOTAL_PX / stripPx;
+    var defaultTopPct = 50;
+
+    function beebffAlphaAtPosition(p, centerPct) {
+      var alpha;
+      if (p <= centerPct) alpha = centerPct > 0 ? p / centerPct : 0;
+      else alpha = (100 - centerPct) > 0 ? (100 - p) / (100 - centerPct) : 0;
+      return 'rgba(237,132,79,' + Math.max(0, Math.min(1, alpha)).toFixed(4) + ')';
+    }
+
+    function gradientForDaySep(day, topPctMap) {
+      var centerPct = topPctMap && topPctMap[day] != null ? topPctMap[day] : defaultTopPct;
+      var stops = [];
+      for (var i = 0; i < n; i++) {
+        var p = (i + 0.5) / n * 100;
+        var col = beebffAlphaAtPosition(p, centerPct);
+        var p1 = (i / n) * 100;
+        var p2 = ((i + 1) / n) * 100;
+        stops.push(col + ' ' + p1.toFixed(3) + '%', col + ' ' + p2.toFixed(3) + '%');
+      }
+      return 'linear-gradient(to bottom, ' + stops.join(', ') + ')';
+    }
+
+    var rules = [];
+    archive.months.forEach(function (m) {
+      for (var d = 1; d <= m.days; d++) {
+        rules.push(
+          '.grid-group--' + m.id + ' .grid-cell[data-day="' + d + '"] { background: ' +
+          gradientForDaySep(d, m._topPct) + '; }'
+        );
+      }
+    });
+
+    var el = document.createElement('style');
+    el.id = 'archive-gradient-styles';
+    el.textContent = rules.join('\n');
+    document.head.appendChild(el);
+  }
+
+  function injectImgTopStyles(archive, derived) {
+    var rules = [];
+    archive.entries.forEach(function (e) {
+      var pct = timeToTopPct(timeToMinutes(e.time));
+      rules.push(
+        '.grid-group--' + e.month + ' .grid-cell[data-day="' + e.day + '"] img { top: ' + pct + '%; }'
+      );
+    });
+    var el = document.createElement('style');
+    el.id = 'archive-img-top-styles';
+    el.textContent = rules.join('\n');
+    document.head.appendChild(el);
+  }
+
+  function applyScrollOrder(archive) {
+    var wrapper = document.querySelector('.page-scroll-wrapper');
+    if (!wrapper) return;
+    var order = archive.displayOrder || [];
+    order.forEach(function (mid) {
+      var section = wrapper.querySelector('.grid-group--' + mid);
+      if (section) wrapper.appendChild(section);
+    });
+  }
+
+  function setInitialDate(archive) {
+    var dateEl = document.querySelector('.page-date');
+    var wrapper = document.querySelector('.page-scroll-wrapper');
+    if (!wrapper || !dateEl) return;
+    var order = archive.displayOrder || [];
+    var newest = order[0];
+    var m = archive.months.find(function (x) { return x.id === newest; });
+    if (m) dateEl.textContent = m.label;
+    wrapper.style.scrollBehavior = 'auto';
+    wrapper.scrollLeft = 0;
+  }
+
+  function init(archive) {
+    var derived = buildDerived(archive);
+    buildDom(archive, derived);
+    injectGradients(archive, derived);
+    injectImgTopStyles(archive, derived);
+    applyScrollOrder(archive);
+    setInitialDate(archive);
+
+    window.__archive = archive;
+    window.__timelineMeta = {
+      groupMeta: derived.groupMeta,
+      labelsByGroup: derived.labelsByGroup,
+      chronOrder: derived.chronOrder,
+      monthLabels: derived.monthLabels
+    };
+
+    document.dispatchEvent(new CustomEvent('archive-ready'));
+  }
+
+  fetch('archive.json')
+    .then(function (r) {
+      if (!r.ok) throw new Error('Failed to load archive.json');
+      return r.json();
+    })
+    .then(init)
+    .catch(function (err) {
+      console.error('[archive-init]', err);
+    });
+})();
