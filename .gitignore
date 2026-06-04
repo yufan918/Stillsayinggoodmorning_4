@@ -1,0 +1,18 @@
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+
+# Netlify
+.netlify/
+
+# Editor / OS
+*.swp
+.idea/
+.vscode/
+Thumbs.db
