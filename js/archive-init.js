@@ -90,7 +90,9 @@
       section.setAttribute('aria-label', m.ariaLabel);
 
       var canvas = document.createElement('div');
-      canvas.className = 'grid-canvas' + (m.cols31 ? ' grid-canvas--31' : '');
+      // Columns must equal the month's day count so cells fill the full 1920px
+      // width with no empty trailing columns (28-day Feb, 30- and 31-day months).
+      canvas.className = 'grid-canvas grid-canvas--' + m.days;
 
       for (var d = 1; d <= m.days; d++) {
         var cell = document.createElement('div');
