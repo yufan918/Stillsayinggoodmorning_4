@@ -7,8 +7,7 @@
   <style>
     @font-face {
       font-family: 'Solae';
-      src: url('fonts/solae-trial.woff2') format('woff2'),
-           url('fonts/solae-trial.woff') format('woff');
+      src: url('solae-trial/Solae-Trial.otf') format('opentype');
       font-weight: normal;
       font-style: normal;
     }
@@ -58,7 +57,7 @@
       flex-direction: column;
       align-items: flex-start;
       gap: 0;
-      background: #fff;
+      background: linear-gradient(to bottom, #9ec5ef 0%, #9ec5ef 33.33%, #d3a2e2 66.66%, #9ec5ef 100%);
       min-width: min-content;
       font-family: 'Solae', sans-serif;
       color: #efefef;
@@ -74,6 +73,33 @@
       z-index: 0;
       pointer-events: none;
       background: linear-gradient(to bottom, #9ec5ef 0%, #9ec5ef 33.33%, #d3a2e2 66.66%, #9ec5ef 100%);
+    }
+
+    .archive-loading {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Solae', sans-serif;
+      font-size: clamp(16px, 1.058vw, 26px);
+      color: #efefef;
+      pointer-events: none;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.3s ease;
+    }
+    .archive-loading.is-visible {
+      opacity: 1;
+      visibility: visible;
+    }
+    .archive-loading.is-error {
+      color: #2e5073;
+      background: rgba(239, 239, 239, 0.92);
+      pointer-events: auto;
+      padding: 24px;
+      text-align: center;
     }
 
     .page-scroll-wrapper {
@@ -870,7 +896,8 @@
     </div>
   </div>
   <div class="page-date" aria-live="polite">Jan 2025</div>
-  <div class="page-scroll-wrapper" id="archive-scroll"></div>
+  <div class="page-scroll-wrapper" id="archive-scroll" aria-busy="true"></div>
+  <div id="archive-loading" class="archive-loading" aria-live="polite">Loading archive…</div>
   <script src="js/archive-init.js"></script>
   <script>
     var pixelSteps = [24, 22, 20, 18, 16, 14, 12, 10, 8, 6, 4, 2, 1];

@@ -193,6 +193,24 @@
     wrapper.scrollLeft = 0;
   }
 
+  function hideLoading() {
+    var el = document.getElementById('archive-loading');
+    if (el) {
+      el.classList.remove('is-visible');
+      el.classList.remove('is-error');
+    }
+    var wrapper = document.getElementById('archive-scroll');
+    if (wrapper) wrapper.removeAttribute('aria-busy');
+  }
+
+  function showLoading(msg, isError) {
+    var el = document.getElementById('archive-loading');
+    if (!el) return;
+    el.textContent = msg;
+    el.classList.add('is-visible');
+    if (isError) el.classList.add('is-error');
+  }
+
   function init(archive) {
     var derived = buildDerived(archive);
     buildDom(archive, derived);
@@ -209,16 +227,23 @@
       monthLabels: derived.monthLabels
     };
 
+    hideLoading();
     document.dispatchEvent(new CustomEvent('archive-ready'));
   }
 
+  showLoading('Loading archive…', false);
+
   fetch('archive.json')
     .then(function (r) {
-      if (!r.ok) throw new Error('Failed to load archive.json');
+      if (!r.ok) throw new Error('Failed to load archive.json (' + r.status + ')');
       return r.json();
     })
     .then(init)
     .catch(function (err) {
       console.error('[archive-init]', err);
+      showLoading(
+        'Could not load archive.json. Hard-refresh (Cmd+Shift+R) or check that the file was deployed.',
+        true
+      );
     });
 })();
