@@ -1442,9 +1442,27 @@
         });
         if (!groups.length) return;
 
-        // Enter at the newest month (leftmost). No smooth scroll -> no sweep.
+        // The newest month is leftmost, but its posted days hug the right edge
+        // (rtl layout), so scrollLeft 0 lands on the empty, not-yet-happened days
+        // and looks blank. Find the newest (leftmost) image and start just before
+        // it so the current month's memes are visible the moment you enter.
+        function newestMemeStart() {
+          var imgs = wrapper.querySelectorAll('.grid-group:not(.archive-clone) .grid-cell img');
+          if (!imgs.length) return 0;
+          var base = wrapper.scrollLeft;
+          var minX = Infinity;
+          Array.prototype.forEach.call(imgs, function(img) {
+            var x = img.getBoundingClientRect().left + base;
+            if (x < minX) minX = x;
+          });
+          if (minX === Infinity) return 0;
+          var margin = Math.min(280, wrapper.clientWidth * 0.18);
+          return Math.max(0, Math.round(minX - margin));
+        }
+
+        // Enter at the newest meme. No smooth scroll -> no sweep.
         wrapper.style.scrollBehavior = 'auto';
-        wrapper.scrollLeft = 0;
+        wrapper.scrollLeft = newestMemeStart();
 
         function sumWidth(list) {
           var w = 0;
