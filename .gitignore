@@ -16,3 +16,7 @@ env/
 .idea/
 .vscode/
 Thumbs.db
+
+# Semi-auto inbox: temporary drops (processed by scripts/add_meme.py)
+photos/inbox/*
+!photos/inbox/.gitkeep
