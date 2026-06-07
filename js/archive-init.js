@@ -81,7 +81,7 @@
     var monthOrder = archive.displayOrder || archive.months.map(function (m) { return m.id; });
     var fragment = document.createDocumentFragment();
 
-    monthOrder.forEach(function (mid) {
+    monthOrder.forEach(function (mid, idx) {
       var m = derived.monthById[mid];
       if (!m) return;
 
@@ -90,16 +90,43 @@
       section.setAttribute('aria-label', m.ariaLabel);
 
       var canvas = document.createElement('div');
-      // Columns must equal the month's day count so cells fill the full 1920px
-      // width with no empty trailing columns (28-day Feb, 30- and 31-day months).
       canvas.className = 'grid-canvas grid-canvas--' + m.days;
 
-      for (var d = 1; d <= m.days; d++) {
+      // The newest month (first in display order) keeps its full calendar width,
+      // including the empty trailing columns for the days that haven't happened
+      // yet (e.g. June showing up to the 7th leaves 23 empty future columns).
+      // Every older month collapses its empty (no-greeting) days so posted days
+      // sit flush together. Each column always keeps its original width
+      // (1920 / days-in-month), so image size, filter, gradient and time are all
+      // unchanged — only the gaps in past months disappear.
+      var isNewest = idx === 0;
+
+      var renderDays;
+      if (isNewest) {
+        renderDays = [];
+        for (var d = 1; d <= m.days; d++) renderDays.push(d);
+      } else {
+        renderDays = [];
+        for (var d2 = 1; d2 <= m.days; d2++) {
+          if (m._entriesByDay[d2]) renderDays.push(d2);
+        }
+        var colW = 1920 / m.days;
+        var blockW = renderDays.length * colW;
+        // Override the fixed 1920px width from the stylesheet.
+        section.style.width = blockW + 'px';
+        section.style.minWidth = blockW + 'px';
+        canvas.style.width = blockW + 'px';
+        canvas.style.minWidth = blockW + 'px';
+        canvas.style.maxWidth = blockW + 'px';
+        canvas.style.gridTemplateColumns = 'repeat(' + renderDays.length + ', 1fr)';
+      }
+
+      renderDays.forEach(function (day) {
         var cell = document.createElement('div');
         cell.className = 'grid-cell';
-        cell.setAttribute('data-day', String(d));
+        cell.setAttribute('data-day', String(day));
 
-        var entry = m._entriesByDay[d];
+        var entry = m._entriesByDay[day];
         if (entry) {
           var img = document.createElement('img');
           img.src = 'photos/' + entry.photo;
@@ -110,7 +137,8 @@
           cell.appendChild(img);
         }
         canvas.appendChild(cell);
-      }
+      });
+
       section.appendChild(canvas);
       fragment.appendChild(section);
     });
