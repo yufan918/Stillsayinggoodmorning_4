@@ -93,7 +93,7 @@ def chron_index(archive: dict) -> dict[str, int]:
 CONFORMING_RE = re.compile(r"^\d{6}\.jpg$", re.IGNORECASE)
 
 
-def pick_inbox_image(explicit: Path | None) -> Path:
+def pick_inbox_image(explicit: Path | None, known_photos: set[str], target_name: str) -> Path:
     if explicit:
         if not explicit.is_file():
             raise FileNotFoundError(f"找不到图片: {explicit}")
@@ -104,26 +104,33 @@ def pick_inbox_image(explicit: Path | None) -> Path:
     if not INBOX_DIR.is_dir():
         INBOX_DIR.mkdir(parents=True, exist_ok=True)
 
+    # 0) If the user already named the file for the target date, use it directly.
+    #    This wins over any unrelated leftover images sitting in photos/.
+    target_in_photos = PHOTOS_DIR / target_name
+    if target_in_photos.is_file() and target_name not in known_photos:
+        return target_in_photos
+
     # 1) Prefer photos/inbox/
     candidates = [
         p for p in INBOX_DIR.iterdir()
         if p.is_file() and p.suffix.lower() in IMAGE_EXTS and not p.name.startswith(".")
     ]
-    # 2) Otherwise, look for a freshly pasted image in photos/ whose name is NOT
-    #    already in the YYMMDD.jpg format (i.e. a new drop, not an existing meme).
+    # 2) Otherwise, look in photos/ for an image that is NOT yet recorded in
+    #    archive.json (a freshly pasted random-named drop), while never touching
+    #    the hundreds of existing memes (which are all listed in archive.json).
     if not candidates:
         candidates = [
             p for p in PHOTOS_DIR.iterdir()
             if p.is_file()
             and p.suffix.lower() in IMAGE_EXTS
             and not p.name.startswith(".")
-            and not CONFORMING_RE.match(p.name)
+            and p.name not in known_photos
         ]
 
     if not candidates:
         raise FileNotFoundError(
             "没找到新图片。\n"
-            f"请把今天的 meme 粘贴到 photos/ 或 photos/inbox/ 文件夹里再运行。"
+            "请把今天的 meme 粘贴到 photos/ 或 photos/inbox/ 文件夹里再运行。"
         )
     if len(candidates) > 1:
         names = ", ".join(p.name for p in sorted(candidates))
@@ -151,23 +158,24 @@ def add_meme(time_str: str, on_date: date, source: Path | None) -> dict:
             f"若要覆盖请先手动删除 archive.json 里对应条目。"
         )
 
-    src = pick_inbox_image(source)
+    known_photos = {e.get("photo") for e in archive["entries"] if e.get("photo")}
     dest = PHOTOS_DIR / photo
+    src = pick_inbox_image(source, known_photos, photo)
     PHOTOS_DIR.mkdir(parents=True, exist_ok=True)
 
-    if dest.exists():
-        raise RuntimeError(f"目标文件已存在: {dest}，未覆盖。")
-
-    shutil.copy2(src, dest)
-    # Remove the original drop (inbox file, or a freshly pasted non-conforming
-    # file in photos/), but never delete the renamed destination itself.
     removed_source = None
-    if src.resolve() != dest.resolve():
+    if src.resolve() == dest.resolve():
+        # User already pasted the file with the correct YYMMDD.jpg name; leave it
+        # in place and just record it in archive.json.
+        pass
+    else:
+        if dest.exists():
+            raise RuntimeError(f"目标文件已存在: {dest}，未覆盖。")
+        shutil.copy2(src, dest)
+        # Remove the original drop (inbox file, or a freshly pasted file in
+        # photos/), but never delete the renamed destination itself.
         in_inbox = src.parent.resolve() == INBOX_DIR.resolve()
-        in_photos_root = (
-            src.parent.resolve() == PHOTOS_DIR.resolve()
-            and not CONFORMING_RE.match(src.name)
-        )
+        in_photos_root = src.parent.resolve() == PHOTOS_DIR.resolve()
         if in_inbox or in_photos_root:
             src.unlink()
             removed_source = src.name

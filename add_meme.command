@@ -29,11 +29,39 @@ else
 fi
 STATUS=$?
 
-echo ""
-if [ "$STATUS" -eq 0 ]; then
-  echo "然后去 GitHub Desktop → Commit → Push"
-else
+if [ "$STATUS" -ne 0 ]; then
+  echo ""
   echo "未完成，请根据上面的错误提示修改。"
+  read -r -p "按回车关闭…" _
+  exit 1
 fi
+
+# --- 自动上传到 GitHub ---
+COMMIT_DATE="${DATE:-$(date +%Y-%m-%d)}"
+echo ""
+echo "正在自动上传到 GitHub…"
+
+git add -A
+if git diff --cached --quiet; then
+  echo "没有需要上传的改动。"
+  read -r -p "按回车关闭…" _
+  exit 0
+fi
+
+git commit -m "更新 $COMMIT_DATE meme" >/dev/null 2>&1
+
+if git push origin HEAD; then
+  echo ""
+  echo "上传成功 ✓  约 1~2 分钟后网站会自动更新。"
+  echo "网址: https://stillsayinggoodmorning.com"
+else
+  echo ""
+  echo "！上传(push)失败。常见原因是第一次需要登录 GitHub。"
+  echo "  解决办法（只需一次）："
+  echo "  打开 GitHub Desktop，点一次 Push origin 完成登录，"
+  echo "  之后再用这个脚本就能全自动上传了。"
+  echo "  （你的改动已经 commit 保存，不会丢失。）"
+fi
+
 echo ""
 read -r -p "按回车关闭…" _
