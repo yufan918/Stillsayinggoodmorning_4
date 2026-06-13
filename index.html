@@ -301,7 +301,7 @@
       background: #efefef;
       color: #666a6d;
       font-family: 'Solae', sans-serif;
-      font-size: clamp(15px, 0.992vw, 24px);
+      font-size: clamp(13px, 0.86vw, 21px);
       line-height: 1.6;
       padding: 28px;
       overflow: hidden;
@@ -333,10 +333,17 @@
       user-select: none;
       -webkit-user-select: none;
     }
+    /* Nudge the two arcs slightly inward so neither hugs the panel border
+       (left arc a touch right, right arc a touch left). Small enough to keep a
+       clear gap from the centred body text. */
+    .page-intro-clock-l {
+      transform: translate(18px, 18px);
+    }
     .page-intro-clock-r {
       position: absolute;
       top: 0;
       left: 0;
+      transform: translate(-18px, -17px);
     }
 
     /* Body sits in the clear gap between the halves (clock_L ends ~29%, clock_R
@@ -365,10 +372,10 @@
 
     .page-intro-title-img {
       position: absolute;
-      top: 28px;
+      top: 45px;
       left: 50%;
       transform: translateX(calc(-50% + 14px));
-      width: clamp(165px, 10.91vw, 264px);
+      width: clamp(142px, 9.4vw, 227px);
       aspect-ratio: 771 / 306;
       z-index: 2;
       pointer-events: none;
@@ -884,8 +891,8 @@
         <img class="page-intro-clock-r" src="clock_R.svg?v=2" alt="" aria-hidden="true">
         <div class="page-intro-body">
           <p><span class="page-intro-title-text">Still Saying Good Morning</span> is a continuously updated living archive that collects the &lsquo;good morning&rsquo; memes my mother has sent me almost every morning since 2024. These images usually appear in my chat window at a similar time each day. I used to swipe past them, while my phone treated them as removable cache.</p>
-          <p>Through visual archaeology, the website lifts these memes out of the transient chat flow and rearranges them by the time they were sent. Each screen represents one month. On the left side of the page, a 24-hour timeline maps a full day, where one minute equals one pixel grid.</p>
-          <p>The archive itself becomes a form of visual evidence. It no longer treats these images as isolated, unoriginal fragments of information, but makes visible the rhythm hidden by daily repetition. Through linear time sequencing, it shows how these low-resolution, repeatedly forwarded and aesthetically rejected poor images can form a fragile but persistent visual bond through everyday circulation.</p>
+          <p>Through visual archaeology, the website lifts these memes out of the fleeting flow of daily chat and rearranges them according to the time of day they were sent. Each screen represents one month. On the left side of the page, a 24-hour timeline maps a full day, where one minute equals one pixel grid.</p>
+          <p>The archive itself becomes a form of visual evidence. It no longer treats these images as isolated, unoriginal fragments of information. Instead, it makes visible the rhythm hidden within daily repetition. Through linear time sequencing, it shows how these low-resolution, repeatedly forwarded and often aesthetically dismissed images can form a fragile but persistent visual bond through everyday circulation.</p>
         </div>
       </div>
     </div>
