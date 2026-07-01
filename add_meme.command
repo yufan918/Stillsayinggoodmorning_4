@@ -30,33 +30,64 @@ fi
 STATUS=$?
 
 if [ "$STATUS" -ne 0 ]; then
-  echo ""
-  echo "未完成，请根据上面的错误提示修改。"
-  read -r -p "按回车关闭…" _
-  exit 1
+  # 添加这一步失败了。但如果只是「这天已经加过」，本地可能还有【尚未上传到
+  # 网站】的改动，这种情况仍然让你去上传，不算真正失败。
+  if [ -n "$(git status --porcelain)" ]; then
+    echo ""
+    echo "提示：这张图可能之前已经加过了，但检测到本地还有【尚未上传到网站】的改动。"
+    echo "      可以继续把这些改动上传到网站。"
+  else
+    echo ""
+    echo "未完成，请根据上面的错误提示修改。"
+    read -r -p "按回车关闭…" _
+    exit 1
+  fi
 fi
 
-# --- 自动上传到 GitHub ---
+# --- 确认后上传到网站（GitHub） ---
 COMMIT_DATE="${DATE:-$(date +%Y-%m-%d)}"
-echo ""
-echo "正在自动上传到 GitHub…"
 
-git add -A
-if git diff --cached --quiet; then
+if [ -z "$(git status --porcelain)" ]; then
+  echo ""
   echo "没有需要上传的改动。"
   read -r -p "按回车关闭…" _
   exit 0
 fi
 
+echo ""
+echo "----------------------------------------------"
+echo "本次将上传到网站的改动："
+git status --short
+echo "----------------------------------------------"
+echo ""
+echo "确认现在上传到网站吗？"
+echo "  · 回车 或 y = 确认上传"
+echo "  · n = 先不上传（改动会保留在本地，下次可再传）"
+read -r -p "请选择: " CONFIRM
+
+case "$CONFIRM" in
+  n|N|no|NO|否)
+    echo ""
+    echo "已取消上传。你的改动已保存在本地，随时可再运行本脚本上传。"
+    read -r -p "按回车关闭…" _
+    exit 0
+    ;;
+esac
+
+echo ""
+echo "正在上传到网站…"
+git add -A
 git commit -m "更新 $COMMIT_DATE meme" >/dev/null 2>&1
 
-if git push origin HEAD; then
+# 用 macOS 钥匙串里的 GitHub 凭据推送（GitHub Desktop 登录过就能直接用），
+# 不修改任何全局 git 配置。
+if git -c credential.helper=osxkeychain push origin HEAD; then
   echo ""
   echo "上传成功 ✓  约 1~2 分钟后网站会自动更新。"
   echo "网址: https://stillsayinggoodmorning.com"
 else
   echo ""
-  echo "！上传(push)失败。常见原因是第一次需要登录 GitHub。"
+  echo "！上传(push)失败。常见原因是这台电脑还没登录过 GitHub。"
   echo "  解决办法（只需一次）："
   echo "  打开 GitHub Desktop，点一次 Push origin 完成登录，"
   echo "  之后再用这个脚本就能全自动上传了。"

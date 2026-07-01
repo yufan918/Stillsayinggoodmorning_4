@@ -15,6 +15,7 @@ It does not push to GitHub (semi-automatic).
 from __future__ import annotations
 
 import argparse
+import calendar
 import json
 import re
 import shutil
@@ -64,15 +65,58 @@ def save_archive(archive: dict) -> None:
         f.write("\n")
 
 
-def month_id_for(archive: dict, year: int, month: int) -> str:
+def _month_key(label: str) -> tuple[int, int]:
+    """(year, month) sort key parsed from a month label like 'Jul 2026'."""
+    parts = label.split()
+    return (int(parts[1]), MONTH_NUM[parts[0]])
+
+
+def ensure_month(archive: dict, year: int, month: int) -> tuple[str, bool]:
+    """Return (month_id, created). Auto-creates the month in archive.json if it
+    doesn't exist yet, following the exact same format as existing months so the
+    website renders it without any other change. Works for any future month."""
     for m in archive["months"]:
         parts = m["label"].split()
-        if len(parts) != 2:
-            continue
-        name, y = parts[0], int(parts[1])
-        if MONTH_NUM.get(name) == month and y == year:
-            return m["id"]
-    raise ValueError(f"archive.json 里没有 {year} 年 {month} 月的配置，请先添加该月份。")
+        if len(parts) == 2 and MONTH_NUM.get(parts[0]) == month and int(parts[1]) == year:
+            return m["id"], False
+
+    mon = MONTH_ABBR[month]
+    new_id = f"{mon.lower()}{year % 100:02d}"
+    existing_ids = {m["id"] for m in archive["months"]}
+    base, n = new_id, 2
+    while new_id in existing_ids:
+        new_id = f"{base}_{n}"
+        n += 1
+
+    days = calendar.monthrange(year, month)[1]
+    new_month = {
+        "id": new_id,
+        "label": f"{mon} {year}",
+        "ariaLabel": f"{year}年{month}月",
+        "days": days,
+        "cols31": days == 31,
+    }
+
+    key = (year, month)
+
+    # months[] is ordered oldest -> newest.
+    pos = len(archive["months"])
+    for i, m in enumerate(archive["months"]):
+        if _month_key(m["label"]) > key:
+            pos = i
+            break
+    archive["months"].insert(pos, new_month)
+
+    # displayOrder[] is ordered newest -> oldest.
+    id_key = {m["id"]: _month_key(m["label"]) for m in archive["months"]}
+    dpos = len(archive["displayOrder"])
+    for i, mid in enumerate(archive["displayOrder"]):
+        if id_key.get(mid, (0, 0)) < key:
+            dpos = i
+            break
+    archive["displayOrder"].insert(dpos, new_id)
+
+    return new_id, True
 
 
 def make_label(year: int, month: int, day: int, time_str: str) -> str:
@@ -149,7 +193,7 @@ def entry_exists(archive: dict, month: str, day: int, photo: str) -> bool:
 
 def add_meme(time_str: str, on_date: date, source: Path | None) -> dict:
     archive = load_archive()
-    month_id = month_id_for(archive, on_date.year, on_date.month)
+    month_id, month_created = ensure_month(archive, on_date.year, on_date.month)
     photo = photo_filename(on_date)
 
     if entry_exists(archive, month_id, on_date.day, photo):
@@ -196,6 +240,7 @@ def add_meme(time_str: str, on_date: date, source: Path | None) -> dict:
         "entry": entry,
         "photo_path": dest,
         "removed_inbox": removed_source,
+        "month_created": month_created,
     }
 
 
@@ -216,6 +261,8 @@ def main() -> int:
 
     e = result["entry"]
     print("完成 ✓")
+    if result.get("month_created"):
+        print(f"  已自动新建月份: {e['month']}（{on_date.year} 年 {on_date.month} 月）")
     print(f"  图片: {result['photo_path'].relative_to(ROOT)}")
     print(f"  条目: {e['month']} day {e['day']}  {e['time']}  {e['label']}")
     print()
