@@ -1,6 +1,7 @@
 {
   "version": 1,
   "displayOrder": [
+    "nov26",
     "oct26",
     "sep26",
     "aug26",
@@ -210,6 +211,13 @@
       "ariaLabel": "2026年10月",
       "days": 31,
       "cols31": true
+    },
+    {
+      "id": "nov26",
+      "label": "Nov 2026",
+      "ariaLabel": "2026年11月",
+      "days": 30,
+      "cols31": false
     }
   ],
   "entries": [
@@ -5476,6 +5484,13 @@
       "photo": "261031.jpg",
       "time": "08:45",
       "label": "Oct 31 2026 08:45"
+    },
+    {
+      "month": "nov26",
+      "day": 1,
+      "photo": "261101.jpg",
+      "time": "09:02",
+      "label": "Nov 1 2026 09:02"
     }
   ]
 }
